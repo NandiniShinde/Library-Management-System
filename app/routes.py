@@ -102,6 +102,7 @@ def configure_routes(app: Flask):
         
         return jsonify({"message": "Book successfully borrowed."}), 200
 
+
     @app.route('/return', methods=['POST'])
     def return_book():
         """Handle returning a borrowed book."""
@@ -113,13 +114,19 @@ def configure_routes(app: Flask):
 
         # Check if the book exists
         book = Book.query.filter_by(isbn=isbn).first()
- 
+        if not book:
+            return jsonify({"message": "Book not found."}), 404
+
         # Check if the user exists
         user = db.session.get(User, user_id)
-       
+        if not user:
+            return jsonify({"message": "User not found."}), 404
+
         # Check if the book was borrowed by the user
         borrowed_book = BorrowedBooks.query.filter_by(book_id=book.id, user_id=user.id).first()
-    
+        if not borrowed_book:
+            return jsonify({"message": "Book is not currently borrowed."}), 400
+        
         # Update the book's status to 'available'
         book.status = "available"  
 
