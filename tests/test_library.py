@@ -241,7 +241,7 @@ def test_case_return_book(client):
     assert response.status_code == 200, "Failed to borrow the book"
     assert response.json.get("message") == "Book successfully borrowed."
 
-    # Step 4: Now return the book
+    # Now return the book
     return_payload = {
         "isbn": "1234567890123",  # ISBN of the book to return
         "user_id": 1  # User ID 1 is returning the book
@@ -254,3 +254,57 @@ def test_case_return_book(client):
 
     # Check the response message to verify the book was returned successfully
     assert response.json.get("message") == "Book successfully returned."
+
+
+def test_case_return_not_borrowed_book(client):
+    """Test attempting to return a book that is not currently borrowed."""
+
+    # Create a test book that is available
+    payload = {
+        "isbn": "9999999999999",
+        "title": "Available Book",
+        "author": "Author Example",
+        "publication_year": 2020
+    }
+
+    # Add the book to the database
+    response = client.post('/books', json=payload)
+    assert response.status_code == 201, "Failed to add the book"
+    
+    # Create a demo user 
+    user_payload = {
+        "name": "Demo User",
+        "email": "demo.user@example.com"
+    }
+
+    # Add user to the database (via POST /users route)
+    response = client.post('/users', json=user_payload)
+       
+
+    # Try to return the book (which is not borrowed)
+    return_payload = {
+        "isbn": "9999999999999",  # The ISBN of the book
+        "user_id": 1  # Assuming a valid user ID exists
+    }
+
+    response = client.post('/return', json=return_payload)
+
+    # Ensure the status code and error message are correct
+    assert response.status_code == 400, "Expected failure for returning a book not borrowed"
+    assert response.json.get("message") == "Book is not currently borrowed."
+
+
+def test_case_return_nonexistent_book(client):
+    """Test attempting to return a book that doesn't exist in the system."""
+
+    # Attempt to return a nonexistent book
+    return_payload = {
+        "isbn": "0000000000000",  # Nonexistent ISBN
+        "user_id": 1  # Assuming a valid user ID exists
+    }
+
+    response = client.post('/return', json=return_payload)
+
+    # Ensure the status code and error message are correct
+    assert response.status_code == 404, "Expected failure for returning a nonexistent book"
+    assert response.json.get("message") == "Book not found."
