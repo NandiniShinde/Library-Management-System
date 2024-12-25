@@ -1,11 +1,19 @@
 import pytest
 import json
 from app import create_app
+from app.extensions import db
+from app.models import Book
+from app.utils import clear_books_db
 
 @pytest.fixture
 def client():
     app = create_app()
     app.testing = True  # Enable testing mode
+     
+    # Clear the database before each test
+    with app.app_context():
+        clear_books_db()
+
     with app.test_client() as client:
         yield client
 
@@ -26,16 +34,66 @@ def test_home_route(client):
 def test_add_book(client):
     """Test the ability to add a book to the library."""
     payload = {
-        "isbn": "1234567890",
-        "title": "Sample Book",
-        "author": "John Doe",
-        "year": 2020
+        "isbn": "1234567897532",
+        "title": "First Book",
+        "author": "Nandini Shinde",
+        "publication_year": 2020
     }
     response = client.post('/books', json=payload)
     assert response.status_code == 201, "Failed to create a book"
     response_data = response.get_json()
-    assert response_data["id"] == 1, "The book ID should be 1"
-    assert response_data["isbn"] == "1234567890", "The ISBN should match"
-    assert response_data["title"] == "Sample Book", "The title should match"
-    assert response_data["author"] == "John Doe", "The author should match"
-    assert response_data["year"] == 2020, "The year should match"
+    assert response_data["isbn"] == "1234567897532", "The ISBN should match"
+    assert response_data["title"] == "First Book", "The title should match"
+    assert response_data["author"] == "Nandini Shinde", "The author should match"
+    assert response_data["publication_year"] == 2020, "The year should match"
+
+def test_add_book_missing_fields(client):
+    """Test adding a book with missing required fields."""
+    # Missing 'isbn'
+    payload = {
+        "title": "Second Book",
+        "author": "John Doe",
+        "publication_year": 2021
+    }
+    response = client.post('/books', json=payload)
+    assert response.status_code == 400, f"Expected 400, got {response.status_code}"
+    assert b"ISBN must not be empty." in response.data
+
+    # Missing 'title'
+    payload = {
+        "isbn": "1234567890159",
+        "author": "Jane Doe",
+        "publication_year": 2021
+    }
+    response = client.post('/books', json=payload)
+    assert response.status_code == 400, f"Expected 400, got {response.status_code}"
+    assert b"Title must not be empty." in response.data
+
+def test_add_book_invalid_isbn(client):
+    """Test adding a book with an invalid ISBN format."""
+    payload = {
+        "isbn": "INVALID_ISBN",
+        "title": "Third Book",
+        "author": "Alice Smith",
+        "publication_year": 2022
+    }
+    response = client.post('/books', json=payload)
+    assert response.status_code == 400, f"Expected 400, got {response.status_code}"
+    assert b"ISBN must be 13 characters long." in response.data
+
+  
+def test_add_book_duplicate_isbn(client):
+    """Test adding a duplicate book (same ISBN)."""
+    # First, add the book
+    payload = {
+        "isbn": "1234567891234",
+        "title": "Fourth Book",
+        "author": "Bob Lee",
+        "publication_year": 2023
+    }
+    response = client.post('/books', json=payload)
+    
+    # Try to add the same book again (should conflict)
+    response = client.post('/books', json=payload)
+    assert response.status_code == 409, f"Expected 409, got {response.status_code}"
+    assert b"Book with this ISBN already exists" in response.data
