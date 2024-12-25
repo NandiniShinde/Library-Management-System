@@ -1,5 +1,5 @@
 from flask import Flask,  request, jsonify
-from app.models import Book
+from app.models import Book, User
 from app.extensions import db
 
 def configure_routes(app: Flask):
@@ -49,3 +49,50 @@ def configure_routes(app: Flask):
         db.session.commit()
 
         return jsonify(new_book.to_dict()), 201
+
+
+
+    @app.route('/users', methods=['POST'])
+    def add_user():
+        """Add a new user to the system."""
+        data = request.get_json()
+        
+        # Validate input data
+        if not data or 'name' not in data or 'email' not in data:
+            return jsonify({"message": "Name and email are required fields"}), 400
+        
+        name = data['name']
+        email = data['email']
+        
+        # Check if user with the same email already exists
+        existing_user = User.query.filter_by(email=email).first()
+        if existing_user:
+            return jsonify({"message": "User with this email already exists"}), 409
+        
+        # Create a new user
+        new_user = User(name=name, email=email)
+        
+        # Add the new user to the database
+        db.session.add(new_user)
+        db.session.commit()
+        
+        return jsonify(new_user.to_dict()), 201
+
+
+    @app.route('/borrow', methods=['POST'])
+    def borrow_book():
+        """Allow a user to borrow a book."""
+        data = request.get_json()
+        
+        user = User.query.filter_by(id=data.get('user_id')).first()
+        
+        book = Book.query.filter_by(isbn=data.get('isbn')).first()
+        
+        if book in user.borrowed_books:
+            return jsonify({"message": "Book already borrowed by this user"}), 409
+        
+        # Add the book to the user's borrowed books
+        user.borrowed_books.append(book)
+        db.session.commit()
+        
+        return jsonify({"message": "Book successfully borrowed."}), 200

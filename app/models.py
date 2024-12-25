@@ -8,6 +8,8 @@ class Book(db.Model):
     author = db.Column(db.String(255), nullable=False)
     publication_year = db.Column(db.Integer, nullable=False)
 
+    borrowers = db.relationship('User', secondary='borrowed_books', backref='borrowed_books')
+
     def __init__(self, isbn, title, author, publication_year):
         self.isbn = isbn
         self.title = title
@@ -49,3 +51,37 @@ class Book(db.Model):
         if not isinstance(publication_year, int) or publication_year < 1000 or publication_year > 2100:
             return False, "Publication year must be a valid number between 1000 and 2100."
         return True, ""
+    
+
+class User(db.Model):
+    __tablename__ = 'users'
+    
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    name = db.Column(db.String(255), nullable=False)
+    email = db.Column(db.String(255), unique=True, nullable=False)
+
+    
+    
+
+    def __init__(self, name, email):
+        self.name = name
+        self.email = email
+
+    def to_dict(self):
+        """Convert User instance to dictionary."""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "email": self.email
+        }
+
+class BorrowedBooks(db.Model):
+    """Intermediate table to track borrowed books."""
+    __tablename__ = 'borrowed_books'
+    
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
+    book_id = db.Column(db.Integer, db.ForeignKey('books.id'), primary_key=True)
+    borrowed_at = db.Column(db.DateTime, default=db.func.now())
+    return_by = db.Column(db.DateTime)
+
+    
