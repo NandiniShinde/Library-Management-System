@@ -136,3 +136,76 @@ def test_case_borrow_book(client):
     
     # Check the response message 
     assert response.json.get("message") == "Book successfully borrowed."
+
+
+def test_case_borrow_book_not_found(client):
+    """Test borrowing a book that doesn't exist in the library."""
+
+    # Create a demo user 
+    user_payload = {
+        "name": "Demo User",
+        "email": "demo.user@example.com"
+    }
+
+    # Add user to the database (via POST /users route)
+    response = client.post('/users', json=user_payload)
+    
+    # Try to borrow a book with a non-existent ISBN
+    borrow_payload = {
+        "isbn": "9999999999999",  # ISBN that does not exist in the system
+        "user_id": 1  # Assuming user ID 1 exists
+    }
+
+    response = client.post('/borrow', json=borrow_payload)
+
+    # Check the status code and ensure it indicates a "not found" error (404)
+    assert response.status_code == 404, f"Expected 404 but got {response.status_code}"
+
+    # Check the response message to verify it indicates the book doesn't exist
+    assert response.json.get("message") == "Book not found", f"Unexpected message: {response.json.get('message')}"
+
+
+def test_case_borrow_book_already_borrowed(client):
+    """Test borrowing a book that is already borrowed from the library."""
+
+    # Create a demo user 
+    user_payload = {
+        "name": "Demo User",
+        "email": "demo.user@example.com"
+    }
+
+    # Add user to the database (via POST /users route)
+    response = client.post('/users', json=user_payload)
+       
+
+    # Create and add a book to the system
+    book_payload = {
+        "isbn": "1234567890123",
+        "title": "Test Book",
+        "author": "Test Author",
+        "publication_year": 2021
+    }
+    
+    response = client.post('/books', json=book_payload)
+    assert response.status_code == 201, "Failed to add the book"
+
+    # Mark the book as borrowed manually 
+    borrow_payload = {
+        "isbn": "1234567890123",
+        "user_id": 1  # Assuming user ID 1 exists
+    }
+    client.post('/borrow', json=borrow_payload)
+    
+    # Now try to borrow the same book again
+    borrow_again_payload = {
+        "isbn": "1234567890123",  # ISBN of the book that is already borrowed by the user
+        "user_id": 1  
+    }
+
+    response = client.post('/borrow', json=borrow_again_payload)
+
+    # Check the status code to ensure it was a "conflict" error (409)
+    assert response.status_code == 409, f"Expected 409 but got {response.status_code}"
+
+    # Check the response message to verify it indicates the book is already borrowed
+    assert response.json.get("message") == "Book is already borrowed by user.", f"Unexpected message: {response.json.get('message')}"
