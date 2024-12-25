@@ -11,9 +11,27 @@ def configure_routes(app: Flask):
     def add_book():
         data = request.get_json()
 
-        if not data or 'isbn' not in data or 'title' not in data or 'author' not in data or 'publication_year' not in data:
-            return jsonify({"error": "Invalid data"}), 400
+        # Validate input data
+        isbn = data.get("isbn")
+        title = data.get("title")
+        author = data.get("author")
+        publication_year = data.get("publication_year")
 
+        # Validate ISBN
+        valid_isbn, isbn_message = Book.validate_isbn(isbn)
+        if not valid_isbn:
+            return jsonify({"error": isbn_message}), 400
+
+        # Validate title
+        valid_title, title_message = Book.validate_title(title)
+        if not valid_title:
+            return jsonify({"error": title_message}), 400
+
+        # Validate publication year
+        valid_year, year_message = Book.validate_publication_year(publication_year)
+        if not valid_year:
+            return jsonify({"error": year_message}), 400
+        
         # Check if the book already exists
         existing_book = Book.query.filter_by(isbn=data['isbn']).first()
         if existing_book:
