@@ -101,3 +101,33 @@ def configure_routes(app: Flask):
         db.session.commit()
         
         return jsonify({"message": "Book successfully borrowed."}), 200
+
+    @app.route('/return', methods=['POST'])
+    def return_book():
+        """Handle returning a borrowed book."""
+
+        # Parse incoming JSON data
+        data = request.get_json()
+        isbn = data.get('isbn')
+        user_id = data.get('user_id')
+
+        # Check if the book exists
+        book = Book.query.filter_by(isbn=isbn).first()
+ 
+        # Check if the user exists
+        user = db.session.get(User, user_id)
+       
+        # Check if the book was borrowed by the user
+        borrowed_book = BorrowedBooks.query.filter_by(book_id=book.id, user_id=user.id).first()
+    
+        # Update the book's status to 'available'
+        book.status = "available"  
+
+        # Remove the record from the BorrowedBooks table
+        db.session.delete(borrowed_book)
+
+        # Commit the changes to the database
+        db.session.commit()
+
+        # Return a success message
+        return jsonify({"message": "Book successfully returned."}), 200

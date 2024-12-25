@@ -7,6 +7,7 @@ class Book(db.Model):
     title = db.Column(db.String(255), nullable=False)
     author = db.Column(db.String(255), nullable=False)
     publication_year = db.Column(db.Integer, nullable=False)
+    status = db.Column(db.String(50), default="available", nullable=False)
 
     borrowers = db.relationship('User', secondary='borrowed_books', backref='borrowed_books')
 
