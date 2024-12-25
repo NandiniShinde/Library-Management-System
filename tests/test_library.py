@@ -209,3 +209,48 @@ def test_case_borrow_book_already_borrowed(client):
 
     # Check the response message to verify it indicates the book is already borrowed
     assert response.json.get("message") == "Book is already borrowed by user.", f"Unexpected message: {response.json.get('message')}"
+
+
+def test_case_return_book(client):
+    """Test the ability to return a borrowed book to the library."""
+    
+    # Create a demo user 
+    user_payload = {
+        "name": "Demo User",
+        "email": "demo.user@example.com"
+    }
+    response = client.post('/users', json=user_payload)
+    assert response.status_code == 201, f"Failed to create user: {response.json.get('message')}"
+
+    # Create and add a book to the system
+    book_payload = {
+        "isbn": "1234567890123",
+        "title": "Test Book",
+        "author": "Test Author",
+        "publication_year": 2021
+    }
+    response = client.post('/books', json=book_payload)
+    assert response.status_code == 201, "Failed to add the book"
+
+    # Borrow the book
+    borrow_payload = {
+        "isbn": "1234567890123",  # ISBN of the book to borrow
+        "user_id": 1  
+    }
+    response = client.post('/borrow', json=borrow_payload)
+    assert response.status_code == 200, "Failed to borrow the book"
+    assert response.json.get("message") == "Book successfully borrowed."
+
+    # Step 4: Now return the book
+    return_payload = {
+        "isbn": "1234567890123",  # ISBN of the book to return
+        "user_id": 1  # User ID 1 is returning the book
+    }
+
+    response = client.post('/return', json=return_payload)
+
+    # Check the status code and ensure it was successful (200 OK)
+    assert response.status_code == 200, "Failed to return the book"
+
+    # Check the response message to verify the book was returned successfully
+    assert response.json.get("message") == "Book successfully returned."
