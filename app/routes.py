@@ -1,5 +1,5 @@
 from flask import Flask,  request, jsonify
-from app.models import Book, User
+from app.models import Book, BorrowedBooks, User
 from app.extensions import db
 
 def configure_routes(app: Flask):
@@ -84,12 +84,17 @@ def configure_routes(app: Flask):
         """Allow a user to borrow a book."""
         data = request.get_json()
         
+        # Check if the user exists
         user = User.query.filter_by(id=data.get('user_id')).first()
+        if not user:
+            return jsonify({"message": "User not found"}), 404
         
+        # Check if the book exists and is not already borrowed
         book = Book.query.filter_by(isbn=data.get('isbn')).first()
-        
+        if not book:
+            return jsonify({"message": "Book not found"}), 404
         if book in user.borrowed_books:
-            return jsonify({"message": "Book already borrowed by this user"}), 409
+            return jsonify({"message": "Book is already borrowed by user."}), 409
         
         # Add the book to the user's borrowed books
         user.borrowed_books.append(book)
