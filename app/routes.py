@@ -1,4 +1,5 @@
 from flask import Flask,  request, jsonify
+from sqlalchemy import func
 from app.models import Book, BorrowedBooks, User
 from app.extensions import db
 
@@ -16,6 +17,9 @@ def configure_routes(app: Flask):
         title = data.get("title")
         author = data.get("author")
         publication_year = data.get("publication_year")
+        
+        # Default status to 'available' if not provided
+        status = data.get('status', 'available')
 
         # Validate ISBN
         valid_isbn, isbn_message = Book.validate_isbn(isbn)
@@ -42,7 +46,9 @@ def configure_routes(app: Flask):
             isbn=data['isbn'],
             title=data['title'],
             author=data['author'],
-            publication_year=data['publication_year']
+            publication_year=data['publication_year'],
+            total_copies=data.get('total_copies', 1),  # Default to 1 if not provided
+            status=status  # Set the status field
         )
 
         db.session.add(new_book)
@@ -138,3 +144,29 @@ def configure_routes(app: Flask):
 
         # Return a success message
         return jsonify({"message": "Book successfully returned."}), 200
+
+    @app.route('/books', methods=['GET'])
+    def view_avaiable_books():
+        """
+        View books in the library.
+        If `status=available` is provided as a query parameter, return only available books.
+        Otherwise, return all books.
+        """
+        status = request.args.get('status')
+
+        if status == "available":
+            # Query to find books where borrowed copies are less than total copies
+            available_books = (
+                db.session.query(Book)
+                .outerjoin(BorrowedBooks, Book.id == BorrowedBooks.book_id)
+                .group_by(Book.id)
+                .having(func.count(BorrowedBooks.book_id) < Book.total_copies)
+                .all() 
+            )
+            books_data = [book.to_dict() for book in available_books]
+        else:
+            # Return all books without filtering
+            books = Book.query.all()
+            books_data = [book.to_dict() for book in books]
+
+        return jsonify(books_data), 200

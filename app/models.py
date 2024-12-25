@@ -8,14 +8,17 @@ class Book(db.Model):
     author = db.Column(db.String(255), nullable=False)
     publication_year = db.Column(db.Integer, nullable=False)
     status = db.Column(db.String(50), default="available", nullable=False)
+    total_copies = db.Column(db.Integer, nullable=False, default=1)
 
     borrowers = db.relationship('User', secondary='borrowed_books', backref='borrowed_books')
 
-    def __init__(self, isbn, title, author, publication_year):
+    def __init__(self, isbn, title, author, publication_year, status, total_copies):
         self.isbn = isbn
         self.title = title
         self.author = author
         self.publication_year = publication_year
+        self.status = status
+        self.total_copies = total_copies
 
     def to_dict(self):
         """Convert Book instance to dictionary."""
@@ -24,7 +27,9 @@ class Book(db.Model):
             "isbn": self.isbn,
             "title": self.title,
             "author": self.author,
-            "publication_year": self.publication_year
+            "publication_year": self.publication_year,
+            "status": self.status,
+            "total_copies": self.total_copies
         }
 
     @staticmethod
