@@ -210,6 +210,121 @@ def test_case_borrow_book_already_borrowed(client):
     # Check the response message to verify it indicates the book is already borrowed
     assert response.json.get("message") == "Book is already borrowed by user.", f"Unexpected message: {response.json.get('message')}"
 
+def test_borrow_book_with_single_available_copy(client):
+    """Test borrowing a book when only one copy is available, and two users try to borrow it."""
+    
+    # Create a demo user
+    user_payload = {
+        "name": "Demo User",
+        "email": "demo.user@example.com"
+    }
+    response = client.post('/users', json=user_payload)
+    assert response.status_code == 201, "Failed to create user"
+
+    # Create another user
+    user_payload2 = {
+        "name": "Another User",
+        "email": "another.user@example.com"
+    }
+    response = client.post('/users', json=user_payload2)
+    assert response.status_code == 201, "Failed to create another user"
+
+    # Create a test book with 1 available copy
+    book_payload = {
+        "isbn": "1234567890123",
+        "title": "Test Book with 1 Copy",
+        "author": "Test Author",
+        "publication_year": 2021,
+        "total_copies": 1
+    }
+    response = client.post('/books', json=book_payload)
+    assert response.status_code == 201, "Failed to add book"
+
+    # Try borrowing the book for the first user (should succeed)
+    borrow_payload = {
+        "isbn": 1234567890123,
+        "user_id": 1
+    }
+    response = client.post('/borrow', json=borrow_payload)
+    assert response.status_code == 200, "Failed to borrow book for the first user"
+    assert response.get_json()['message'] == "Book successfully borrowed."
+
+    # Try borrowing the same book for the second user (should fail, no copies available)
+    borrow_payload2 = {
+        "isbn": 1234567890123,
+        "user_id": 2
+    }
+    response = client.post('/borrow', json=borrow_payload2)
+    assert response.status_code == 409, "Expected error when no copies are available"
+    assert response.get_json()['message'] == "The book is not available."
+
+
+def test_borrow_book_decreases_total_copies(client):
+    """ Test to check if the count of total_copies is decreases on borrowing the book"""
+    
+    # Create a demo user
+    user_payload = {
+        "name": "Demo User",
+        "email": "demo.user@example.com"
+    }
+    response = client.post('/users', json=user_payload)
+    assert response.status_code == 201, "Failed to add user"
+    
+    # Add a book to the system with 1 copy
+    book_payload = {
+        "isbn": "1234567890123",
+        "title": "Test Book",
+        "author": "Test Author",
+        "publication_year": 2021,
+        "total_copies": 2
+    }
+    response = client.post('/books', json=book_payload)
+    assert response.status_code == 201, "Failed to add book"
+    
+    # Borrow the book
+    borrow_payload = {
+        "isbn": "1234567890123",
+        "user_id": 1  
+    }
+    response = client.post('/borrow', json=borrow_payload)
+    assert response.status_code == 200, f"Failed to borrow the book: {response.json}"
+    
+    # Check that total_copies is increased by 1
+    book = Book.query.filter_by(isbn="1234567890123").first()
+    assert book.total_copies == 1, f"Expected 1 copies but got {book.total_copies}"
+
+
+def test_borrow_book_and_make_it_unavailable(client):
+    """Test to check the status of the book is changed to unavailable on borrowing the book"""
+    
+    # Create a demo user
+    user_payload = {"name": "Demo User", "email": "demo.user@example.com"}
+    response = client.post('/users', json=user_payload)
+    assert response.status_code == 201, "Failed to add user"
+    
+    # Add a book to the system with 1 copy
+    book_payload = {
+        "isbn": "1234567890123",
+        "title": "Test Book",
+        "author": "Test Author",
+        "publication_year": 2021,
+        "total_copies": 1
+    }
+    response = client.post('/books', json=book_payload)
+    assert response.status_code == 201, "Failed to add book"
+    
+    # Borrow the book, which will make it unavailable
+    borrow_payload = {
+        "isbn": "1234567890123",
+        "user_id": 1  
+    }
+    response = client.post('/borrow', json=borrow_payload)
+    assert response.status_code == 200, f"Failed to borrow the book: {response.json}"
+    
+    # Check that the status is now 'unavailable'
+    book = Book.query.filter_by(isbn="1234567890123").first()
+    assert book.status == "unavailable", f"Expected 'unavailable' but got {book.status}"
+
 
 def test_case_return_book(client):
     """Test the ability to return a borrowed book to the library."""
@@ -367,5 +482,85 @@ def test_case_view_available_books(client):
     assert len(available_books) == 2, "Incorrect number of available books returned"
     assert all(book["isbn"] in ["1111111111111", "2222222222222"] for book in available_books), "Returned books do not match expected available books"
     
-
+def test_return_book_increases_total_copies(client):
+    """Test that returning a book increases the total copies by 1."""
     
+    # Create a demo user
+    user_payload = {"name": "Demo User", "email": "demo.user@example.com"}
+    response = client.post('/users', json=user_payload)
+    assert response.status_code == 201, "Failed to add user"
+    
+    # Add a book to the system with 1 copy
+    book_payload = {
+        "isbn": "1234567890123",
+        "title": "Test Book",
+        "author": "Test Author",
+        "publication_year": 2021,
+        "total_copies": 2
+    }
+    response = client.post('/books', json=book_payload)
+    assert response.status_code == 201, "Failed to add book"
+    
+    # Borrow the book
+    borrow_payload = {
+        "isbn": "1234567890123",
+        "user_id": 1  
+    }
+    response = client.post('/borrow', json=borrow_payload)
+    assert response.status_code == 200, f"Failed to borrow the book: {response.json}"
+    
+    # Return the book
+    return_payload = {
+        "isbn": "1234567890123",
+        "user_id": 1  
+    }
+    response = client.post('/return', json=return_payload)
+    assert response.status_code == 200, f"Failed to return the book: {response.json}"
+    
+    # Check that total_copies is increased by 1
+    book = Book.query.filter_by(isbn="1234567890123").first()
+    assert book.total_copies == 2, f"Expected 2 copies but got {book.total_copies}"
+
+def test_return_unavailable_book_and_make_it_available(client):
+    """Test that returning an unavailable book changes its status to available."""
+    
+    # Create a demo user
+    user_payload = {"name": "Demo User", "email": "demo.user@example.com"}
+    response = client.post('/users', json=user_payload)
+    assert response.status_code == 201, "Failed to add user"
+    
+    # Add a book to the system with 1 copy
+    book_payload = {
+        "isbn": "1234567890123",
+        "title": "Test Book",
+        "author": "Test Author",
+        "publication_year": 2021,
+        "total_copies": 1
+    }
+    response = client.post('/books', json=book_payload)
+    assert response.status_code == 201, "Failed to add book"
+    
+    # Borrow the book, which will make it unavailable
+    borrow_payload = {
+        "isbn": "1234567890123",
+        "user_id": 1  # Assuming user ID 1 exists
+    }
+    response = client.post('/borrow', json=borrow_payload)
+    assert response.status_code == 200, f"Failed to borrow the book: {response.json}"
+    
+    # Return the book and check its status
+    return_payload = {
+        "isbn": "1234567890123",
+        "user_id": 1  # Assuming user ID 1 exists
+    }
+    response = client.post('/return', json=return_payload)
+    assert response.status_code == 200, f"Failed to return the book: {response.json}"
+    
+    # Check that the status is now 'available'
+    book = Book.query.filter_by(isbn="1234567890123").first()
+    assert book.status == "available", f"Expected 'available' but got {book.status}"
+    
+    # Check if the book is now visible in available books (status = 'available')
+    response = client.get('/books?status=available')
+    available_books = response.json
+    assert any(b['isbn'] == "1234567890123" for b in available_books), "Returned book should be available"
