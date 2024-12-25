@@ -9,17 +9,17 @@ from app.utils import clear_books_db
 def client():
     app = create_app()
     app.testing = True  # Enable testing mode
-     
+    
     # Clear the database before each test
     with app.app_context():
         clear_books_db()
-
+    
+     
     with app.test_client() as client:
         yield client
 
 def test_home_route(client):
     """Test that the home route returns the correct response."""
-    
     # Send a GET request to the home route
     response = client.get('/')
     
@@ -308,3 +308,64 @@ def test_case_return_nonexistent_book(client):
     # Ensure the status code and error message are correct
     assert response.status_code == 404, "Expected failure for returning a nonexistent book"
     assert response.json.get("message") == "Book not found."
+
+def test_case_view_available_books(client):
+    """Test viewing only the books that are currently available in the library."""
+
+    # Add some books to the system
+    books_payload = {
+            "isbn": "1111111111111",
+            "title": "Available Book 1",
+            "author": "Author 1",
+            "publication_year": 2010,
+        }
+    response = client.post('/books', json=books_payload)
+    assert response.status_code == 201, f"Failed to add book: {books_payload['title']}"
+    
+    books_payload =     {
+            "isbn": "2222222222222",
+            "title": "Available Book 2",
+            "author": "Author 2",
+            "publication_year": 2015
+        }
+    response = client.post('/books', json=books_payload)
+    assert response.status_code == 201, f"Failed to add book: {books_payload['title']}"
+    
+    books_payload = {
+            "isbn": "3333333333333",
+            "title": "Borrowed Book",
+            "author": "Author 3",
+            "publication_year": 2020
+        }
+    response = client.post('/books', json=books_payload)
+    assert response.status_code == 201, f"Failed to add book: {books_payload['title']}"
+
+
+    # Create a demo user 
+    user_payload = {
+        "name": "Demo User",
+        "email": "demo.user@example.com"
+    }
+
+    # Add user to the database (via POST /users route)
+    response = client.post('/users', json=user_payload)
+
+    # Borrow the third book to make it unavailable
+    borrow_payload = {
+        "isbn": "3333333333333",  # ISBN of the book to borrow
+        "user_id": 1  # Assuming a valid user ID exists
+    }
+    response = client.post('/borrow', json=borrow_payload)
+    assert response.status_code == 200, "Failed to borrow the book"
+
+    # Fetch available books
+    response = client.get('/books?status=available')
+    assert response.status_code == 200, "Failed to fetch available books"
+
+    # Validate the response
+    available_books = response.json
+    assert len(available_books) == 2, "Incorrect number of available books returned"
+    assert all(book["isbn"] in ["1111111111111", "2222222222222"] for book in available_books), "Returned books do not match expected available books"
+    
+
+    
