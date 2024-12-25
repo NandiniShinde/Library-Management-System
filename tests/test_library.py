@@ -97,3 +97,42 @@ def test_add_book_duplicate_isbn(client):
     response = client.post('/books', json=payload)
     assert response.status_code == 409, f"Expected 409, got {response.status_code}"
     assert b"Book with this ISBN already exists" in response.data
+
+
+def test_case_borrow_book(client):
+    """Test the ability to borrow a book from the library."""
+
+     # Create a demo user 
+    user_payload = {
+        "name": "Demo User",
+        "email": "demo.user@example.com"
+    }
+
+    # Add user to the database (via POST /users route)
+    response = client.post('/users', json=user_payload)
+
+    # Create a test book 
+    payload = {
+        "isbn": "1234567890123",
+        "title": "Test Book",
+        "author": "Test Author",
+        "publication_year": 2021
+    }
+
+    # Add the book to the database (via POST /books route)
+    response = client.post('/books', json=payload)
+    assert response.status_code == 201, "Failed to add the book"
+
+    # Now try to borrow the book
+    borrow_payload = {
+        "isbn": "1234567890123",  # ISBN of the book to borrow
+        "user_id": 1  
+    }
+
+    response = client.post('/borrow', json=borrow_payload)
+
+    # Check the status code to ensure it was successful
+    assert response.status_code == 200, "Failed to borrow the book"
+    
+    # Check the response message 
+    assert response.json.get("message") == "Book successfully borrowed."
