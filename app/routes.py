@@ -95,15 +95,34 @@ def configure_routes(app: Flask):
         if not user:
             return jsonify({"message": "User not found"}), 404
         
-        # Check if the book exists and is not already borrowed
+        # Check if the book exists
         book = Book.query.filter_by(isbn=data.get('isbn')).first()
         if not book:
             return jsonify({"message": "Book not found"}), 404
+
+        # Check if the book is already borrowed by the user
         if book in user.borrowed_books:
             return jsonify({"message": "Book is already borrowed by user."}), 409
         
+        # Check if the book is available (total_copies - borrowed_count > 0)
+        borrowed_count = db.session.query(BorrowedBooks).filter_by(book_id=book.id).count()
+        if borrowed_count >= book.total_copies:
+            # If no copies are available, set the status to 'unavailable'
+            book.status = "unavailable"
+            db.session.commit()
+            return jsonify({"message": "The book is not available."}), 409  # Conflict: book is not available
+
         # Add the book to the user's borrowed books
         user.borrowed_books.append(book)
+
+        # Decrement the total copies by 1
+        book.total_copies -= 1
+        
+        # If the total copies are 0, set the status to 'unavailable'
+        if book.total_copies == 0:
+            book.status = "unavailable"
+
+        # Commit the transaction to save the changes
         db.session.commit()
         
         return jsonify({"message": "Book successfully borrowed."}), 200
@@ -112,7 +131,7 @@ def configure_routes(app: Flask):
     @app.route('/return', methods=['POST'])
     def return_book():
         """Handle returning a borrowed book."""
-
+        
         # Parse incoming JSON data
         data = request.get_json()
         isbn = data.get('isbn')
@@ -133,18 +152,26 @@ def configure_routes(app: Flask):
         if not borrowed_book:
             return jsonify({"message": "Book is not currently borrowed."}), 400
         
-        # Update the book's status to 'available'
-        book.status = "available"  
-
         # Remove the record from the BorrowedBooks table
         db.session.delete(borrowed_book)
+        
+        # Increment the total_copies of the book when it is returned
+        print(f"Before return, total copies: {book.total_copies}")
+        book.total_copies += 1
+        print(f"After return, total copies: {book.total_copies}")
 
+        
+        # If the book was previously unavailable, set its status back to available
+        if book.status == "unavailable":
+            book.status = "available"
+        
         # Commit the changes to the database
         db.session.commit()
 
         # Return a success message
         return jsonify({"message": "Book successfully returned."}), 200
 
+    
     @app.route('/books', methods=['GET'])
     def view_avaiable_books():
         """
