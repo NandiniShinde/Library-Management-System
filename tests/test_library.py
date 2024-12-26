@@ -7,6 +7,9 @@ from app.utils import clear_books_db
 
 @pytest.fixture
 def client():
+    """Sets up a test client for the Flask app and clears the database before each test.
+    This ensures each test starts with a clean slate."""
+
     app = create_app()
     app.testing = True  # Enable testing mode
     
@@ -19,7 +22,9 @@ def client():
         yield client
 
 def test_home_route(client):
-    """Test that the home route returns the correct response."""
+    """Tests if the home route responds with the expected welcome message.
+    Ensures the application is correctly routing to the homepage."""
+
     # Send a GET request to the home route
     response = client.get('/')
     
@@ -32,7 +37,9 @@ def test_home_route(client):
     assert actual_message == expected_message, f"Expected response data '{expected_message}', but got '{actual_message}'"
 
 def test_add_book(client):
-    """Test the ability to add a book to the library."""
+    """Validates the functionality to add a book to the library.
+    Ensures that the book data is correctly stored and returned."""
+
     payload = {
         "isbn": "1234567897532",
         "title": "First Book",
@@ -48,7 +55,9 @@ def test_add_book(client):
     assert response_data["publication_year"] == 2020, "The year should match"
 
 def test_add_book_missing_fields(client):
-    """Test adding a book with missing required fields."""
+    """Tests adding a book with missing required fields like ISBN or title.
+    Ensures the system enforces mandatory fields and returns appropriate error messages."""
+
     # Missing 'isbn'
     payload = {
         "title": "Second Book",
@@ -70,7 +79,9 @@ def test_add_book_missing_fields(client):
     assert b"Title must not be empty." in response.data
 
 def test_add_book_invalid_isbn(client):
-    """Test adding a book with an invalid ISBN format."""
+    """Tests adding a book with an invalid ISBN format.
+    Ensures the ISBN validation logic correctly rejects invalid inputs."""
+
     payload = {
         "isbn": "INVALID_ISBN",
         "title": "Third Book",
@@ -83,7 +94,9 @@ def test_add_book_invalid_isbn(client):
 
   
 def test_add_book_duplicate_isbn(client):
-    """Test adding a duplicate book (same ISBN)."""
+    """Tests adding a book with an ISBN that already exists in the library.
+    Ensures the system prevents duplicate entries based on ISBN."""
+
     # First, add the book
     payload = {
         "isbn": "1234567891234",
@@ -100,9 +113,10 @@ def test_add_book_duplicate_isbn(client):
 
 
 def test_case_borrow_book(client):
-    """Test the ability to borrow a book from the library."""
+    """Validates borrowing a book from the library.
+    Ensures the book can be borrowed and the response confirms the action."""
 
-     # Create a demo user 
+    # Create a demo user 
     user_payload = {
         "name": "Demo User",
         "email": "demo.user@example.com"
@@ -166,7 +180,7 @@ def test_case_borrow_book_not_found(client):
 
 
 def test_case_borrow_book_already_borrowed(client):
-    """Test borrowing a book that is already borrowed from the library."""
+    """Test borrowing a book that is already borrowed from the library by the same user."""
 
     # Create a demo user 
     user_payload = {
