@@ -89,7 +89,7 @@ This project implements a simple Library Management System (LMS) that allows use
         }
         ```
 
-    - ### GET `/books/available`
+    - ### GET `/books?status=available`
         - **Description**: Returns a list of all available books in the library.
 
 
