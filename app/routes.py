@@ -17,6 +17,7 @@ def configure_routes(app: Flask):
         title = data.get("title")
         author = data.get("author")
         publication_year = data.get("publication_year")
+        total_copies = data.get("total_copies", 1)
         
         # Default status to 'available' if not provided
         status = data.get('status', 'available')
@@ -43,11 +44,11 @@ def configure_routes(app: Flask):
 
         # Create a new book
         new_book = Book(
-            isbn=data['isbn'],
-            title=data['title'],
-            author=data['author'],
-            publication_year=data['publication_year'],
-            total_copies=data.get('total_copies', 1),  # Default to 1 if not provided
+            isbn=isbn,
+            title=title,
+            author=author,
+            publication_year=publication_year,
+            total_copies=total_copies,
             status=status  # Set the status field
         )
 
