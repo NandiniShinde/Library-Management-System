@@ -578,3 +578,148 @@ def test_return_unavailable_book_and_make_it_available(client):
     response = client.get('/books?status=available')
     available_books = response.json
     assert any(b['isbn'] == "1234567890123" for b in available_books), "Returned book should be available"
+
+
+def test_return_unavailable_book(client):
+    """Test that returning an unavailable book changes its status to available."""
+    
+    # Add a book to the system with 0 copy
+    book_payload = {
+        "isbn": "1234567890123",
+        "title": "Test Book",
+        "author": "Test Author",
+        "publication_year": 2021,
+        "total_copies": 0,
+        "status": "unavailable"
+    }
+    response = client.post('/books', json=book_payload)
+    assert response.status_code == 201, "Failed to add book"
+
+    book_payload = {
+        "isbn": "4815897463248",
+        "title": "Test Book 2",
+        "author": "Test Author 2",
+        "publication_year": 2021,
+        "total_copies": 0,
+        "status": "unavailable"
+    }
+    response = client.post('/books', json=book_payload)
+    assert response.status_code == 201, "Failed to add book"
+
+    # Check if the book is now visible in unavailable books (status = 'unavailable')
+    response = client.get('/books?status=unavailable')
+    unavailable_books = response.json
+    assert any(b['isbn'] == "1234567890123" for b in unavailable_books), "Returned all unavailable books"
+
+
+def test_all_book_borrowed_by_a_user(client):
+    """Test that returns all the books borrowed by the user."""
+
+    # Create a demo user
+    user_payload = {"name": "Demo User", "email": "demo.user@example.com"}
+    response = client.post('/users', json=user_payload)
+    assert response.status_code == 201, "Failed to add user"
+
+    # Add a book to the system with 1 copy
+    book_payload = {
+        "isbn": "1234567890123",
+        "title": "Test Book",
+        "author": "Test Author",
+        "publication_year": 2021,
+        "total_copies": 1
+    }
+    response = client.post('/books', json=book_payload)
+    assert response.status_code == 201, "Failed to add book"
+
+    book_payload = {
+        "isbn": "1234567756123",
+        "title": "Test Book 2",
+        "author": "Test Author 2",
+        "publication_year": 2021,
+        "total_copies": 1
+    }
+    response = client.post('/books', json=book_payload)
+    assert response.status_code == 201, "Failed to add book"
+    
+    # Borrow the book, which will make it unavailable
+    borrow_payload = {
+        "isbn": "1234567890123",
+        "user_id": 1  
+    }
+    response = client.post('/borrow', json=borrow_payload)
+    assert response.status_code == 200, f"Failed to borrow the book: {response.json}"
+
+    borrow_payload = {
+        "isbn": "1234567756123",
+        "user_id": 1  
+    }
+    response = client.post('/borrow', json=borrow_payload)
+    assert response.status_code == 200, f"Failed to borrow the book: {response.json}"
+
+    # borrowed_books = ['1234567890123','1234567756123']
+
+    # Fetch all books borrowed by the user
+    response = client.get(f'/users/1/borrowed-books')
+    assert response.status_code == 200, "Failed to fetch borrowed books"
+
+    print("Test passed: Borrowed books fetched successfully.")
+
+def test_total_borrowed_book_by_user(client):
+    # Create a demo user
+    user_payload = {"name": "Demo User", "email": "demo.user@example.com"}
+    response = client.post('/users', json=user_payload)
+    assert response.status_code == 201, "Failed to add user"
+
+    # Add a book to the system with 1 copy
+    book_payload = {
+        "isbn": "1234567890123",
+        "title": "Test Book",
+        "author": "Test Author",
+        "publication_year": 2021,
+        "total_copies": 1
+    }
+    response = client.post('/books', json=book_payload)
+    assert response.status_code == 201, "Failed to add book"
+
+    book_payload = {
+        "isbn": "1234567756123",
+        "title": "Test Book 2",
+        "author": "Test Author 2",
+        "publication_year": 2021,
+        "total_copies": 1
+    }
+    response = client.post('/books', json=book_payload)
+    assert response.status_code == 201, "Failed to add book"
+
+    book_payload = {
+        "isbn": "1234567966123",
+        "title": "Harry Potter 3",
+        "author": "Nandini 3",
+        "publication_year": 2021,
+        "total_copies": 1
+    }
+    response = client.post('/books', json=book_payload)
+    assert response.status_code == 201, "Failed to add book"
+    
+    # Borrow the book, which will make it unavailable
+    borrow_payload = {
+        "isbn": "1234567890123",
+        "user_id": 1  
+    }
+    response = client.post('/borrow', json=borrow_payload)
+    assert response.status_code == 200, f"Failed to borrow the book: {response.json}"
+
+    borrow_payload = {
+        "isbn": "1234567756123",
+        "user_id": 1  
+    }
+    response = client.post('/borrow', json=borrow_payload)
+    assert response.status_code == 200, f"Failed to borrow the book: {response.json}"
+
+    borrow_payload = {
+        "isbn": "1234567966123",
+        "user_id": 1  
+    }
+    response = client.post('/borrow', json=borrow_payload)
+    assert response.status_code == 400, f"User is able to borrow more than two books: {response.json}"
+

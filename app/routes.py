@@ -6,6 +6,11 @@ from app.extensions import db
 def configure_routes(app: Flask):
     @app.route('/', methods=['GET'])
     def home():
+        new_book = Book(isbn="86257419863", title="Harry Potter", author="Nandini", publication_year=2024, total_copies=0, status="unavailable")
+
+        db.session.add(new_book)
+        db.session.commit()
+
         return "Welcome to the Library Management System!"
     
     @app.route('/books', methods=['POST'])
@@ -105,12 +110,17 @@ def configure_routes(app: Flask):
         if book in user.borrowed_books:
             return jsonify({"message": "Book is already borrowed by user."}), 409
         
+        
+        if len(user.borrowed_books) >= 2:
+            return jsonify({"message": "User can not borrow any more books"}), 400
+        
+
         # Check if the book is available (total_copies - borrowed_count > 0)
-        borrowed_count = db.session.query(BorrowedBooks).filter_by(book_id=book.id).count()
-        if borrowed_count >= book.total_copies:
+        Book_data = db.session.query(Book).filter_by(id=book.id).first()
+        if Book_data.status == "unavailable":
             # If no copies are available, set the status to 'unavailable'
-            book.status = "unavailable"
-            db.session.commit()
+            # book.status = "unavailable"
+            # db.session.commit()
             return jsonify({"message": "The book is not available."}), 409  # Conflict: book is not available
 
         # Add the book to the user's borrowed books
@@ -198,3 +208,41 @@ def configure_routes(app: Flask):
             books_data = [book.to_dict() for book in books]
 
         return jsonify(books_data), 200
+    
+    @app.route('/unavailable-books', methods=['GET'])
+    def view_unavailable_books():
+        status = request.args.get('status')
+
+        if status == "unavailable":
+            # Query to find books where status is unavailable
+            unavailable_books = (
+                db.session.query(Book).having(status="unavailable")
+            )
+            books_data = [book.to_dict() for book in unavailable_books]
+        else:
+            # Return all books without filtering
+            books = Book.query.all()
+            books_data = [book.to_dict() for book in books]
+
+        return jsonify(books_data), 200
+    
+
+    @app.route('/users/<int:user_id>/borrowed-books', methods=['GET'])
+    def get_borrowed_books(user_id):
+        # Check if the user exists
+        user = db.session.get(User, user_id)
+        if not user:
+            return jsonify({"message": "User not found"}), 404
+
+        # Fetch borrowed books for the user
+        borrowed_books = (
+            db.session.query(Book)
+            .join(BorrowedBooks, BorrowedBooks.book_id == Book.id)
+            .filter(BorrowedBooks.user_id == user_id)
+            .all()
+        )
+        books_data = [book.to_dict() for book in borrowed_books]
+
+        return jsonify(books_data), 200
+    
+    
